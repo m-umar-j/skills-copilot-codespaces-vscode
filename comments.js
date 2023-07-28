@@ -1,24 +1,24 @@
 //create a web server
-var express = require('express');
+import express, { static } from 'express';
 var app = express();
-var bodyParser = require('body-parser');
-var path = require('path');
-var fs = require('fs');
-var http = require('http');
-var https = require('https');
-var privateKey  = fs.readFileSync('sslcert/private.pem', 'utf8');
-var certificate = fs.readFileSync('sslcert/file.crt', 'utf8');
+import { urlencoded, json } from 'body-parser';
+import { join } from 'path';
+import { readFileSync } from 'fs';
+import http from 'http';
+import { createServer } from 'https';
+var privateKey  = readFileSync('sslcert/private.pem', 'utf8');
+var certificate = readFileSync('sslcert/file.crt', 'utf8');
 var credentials = {key: privateKey, cert: certificate};
-var httpsServer = https.createServer(credentials, app);
+var httpsServer = createServer(credentials, app);
 
 var port = 3000;
 
 //set up body parser
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(urlencoded({ extended: false }));
+app.use(json());
 
 //set up static file path
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(static(join(__dirname, 'public')));
 
 //set up default route
 app.get('/', function(req, res){
@@ -28,4 +28,4 @@ app.get('/', function(req, res){
 //set up route for get request
 app.get('/comments', function(req, res){
 	//create a sample data
-	var comments = [{author: 'Pete Hunt', text: 'This is one comment'},
+	var comments = [{author: 'Pete Hunt', text: 'This is one comment'},];});
