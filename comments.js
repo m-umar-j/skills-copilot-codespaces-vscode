@@ -1,31 +1,76 @@
-//create a web server
-import express, { static } from 'express';
-var app = express();
-import { urlencoded, json } from 'body-parser';
-import { join } from 'path';
-import { readFileSync } from 'fs';
-import http from 'http';
-import { createServer } from 'https';
-var privateKey  = readFileSync('sslcert/private.pem', 'utf8');
-var certificate = readFileSync('sslcert/file.crt', 'utf8');
-var credentials = {key: privateKey, cert: certificate};
-var httpsServer = createServer(credentials, app);
+// Create web server
 
-var port = 3000;
+// import libraries
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('./cors');
+const authenticate = require('../authenticate');
+const Comment = require('../models/comments');
+const commentRouter = express.Router();
 
-//set up body parser
-app.use(urlencoded({ extended: false }));
-app.use(json());
+// use body parser to parse data
+commentRouter.use(bodyParser.json());
 
-//set up static file path
-app.use(static(join(__dirname, 'public')));
+// configure commentRouter to support REST API
 
-//set up default route
-app.get('/', function(req, res){
-	res.send('Hello World!');
+// route '/'
+commentRouter.route('/')
+// preflight request
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+// get request
+.get(cors.cors, (req, res, next) => {
+    Comment.find(req.query)
+    .populate('author')
+    .then((comments) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(comments);
+    }, (err) => next(err))
+    .catch((err) => next(err));
+})
+// post request
+.post(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
+    if (req.body != null) {
+        // create comment
+        Comment.create(req.body)
+        .then((comment) => {
+            // populate comment
+            Comment.findById(comment._id)
+            .populate('author')
+            .then((comment) => {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.json(comment);
+            })
+        }, (err) => next(err))
+        .catch((err) => next(err));
+    }
+    else {
+        // error
+        err = new Error('Comment not found in request body');
+        err.status = 404;
+        return next(err);
+    }
+})
+// put request
+.put(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
+    // error
+    res.statusCode = 403;
+    res.end('PUT operation not supported on /comments');
+})
+// delete request
+.delete(cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
+    // remove all comments
+    Comment.remove({})
+    .then((resp) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        // send response
+        res.json(resp);
+    }, (err) => next(err))
+    .catch((err) => next(err));
 });
 
-//set up route for get request
-app.get('/comments', function(req, res){
-	//create a sample data
-	var comments = [{author: 'Pete Hunt', text: 'This is one comment'},];});
+// route '/:commentId'
+commentRouter.route('/:commentId')
+// preflight
